@@ -101,10 +101,15 @@ By the end you will have:
 ## 6. If something goes wrong
 
 - **Red error mentioning "could not find function"**: you likely skipped
-  `devtools::load_all(".")` in STEP 2, or your RStudio Project isn't open
+  the `source()` loop in STEP 2, or your RStudio Project isn't open
   at the repository root.
 - **Red error mentioning "there is no package called ..."**: go back to
   STEP 0 and install the missing package with `install.packages("name")`.
+- **Red error/warning mentioning "Rtools" while installing a package**:
+  you don't need Rtools for this exercise. This script deliberately avoids
+  `devtools` (which is what normally requires it) and instead loads the
+  package with plain `source()` in STEP 2, which only needs regular CRAN
+  packages that install as ready-made binaries.
 - **A function's behavior is unclear**: type `?functionName` in the
   Console (e.g. `?initScenario`) to open its help page.
 - Still stuck? Open an
