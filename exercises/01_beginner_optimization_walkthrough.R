@@ -26,6 +26,14 @@
 #   workflow described in this repository's README ("3 Example Application").
 #
 # For full background, see README.md in the root of this repository.
+#
+# A note on how this script loads the package:
+#   The "normal" way to work on an R package's source code is to run
+#   devtools::load_all("."). We deliberately do NOT use that here, because
+#   installing devtools pulls in many other packages, some of which need to
+#   be compiled from source on Windows (requiring an extra tool called
+#   Rtools). To keep this exercise dependency-light, we instead load the
+#   package's functions directly with base R's source() (Step 2 below).
 
 ## ---------------------------------------------------------------------------
 ## STEP 0: Install the R packages this script needs (only run this ONCE,
@@ -36,12 +44,16 @@
 # from the lines below and run them if you have not installed these
 # packages before. If you're not sure, run them anyway - reinstalling an
 # already-installed package does no harm, it just takes a minute.
+#
+# These are all regular CRAN packages with ready-made Windows/Mac binaries,
+# so none of them should require any compiling tools to install.
 
-# install.packages("devtools")  # lets us load this package's code directly
-# install.packages("readxl")    # lets us read .xlsx (Excel) files
-# install.packages("ggplot2")   # lets us make plots
-# install.packages("dplyr")     # helps reshape/summarize data
-# install.packages("tidyr")     # helps reshape data ("long" vs "wide" format)
+# install.packages("readxl")     # lets us read .xlsx (Excel) files
+# install.packages("ggplot2")    # lets us make plots
+# install.packages("dplyr")      # helps reshape/summarize data
+# install.packages("tidyr")      # helps reshape data ("long" vs "wide" format)
+# install.packages("lpSolveAPI") # the linear-programming solver used internally
+#                                 # by solveScenario()
 
 ## ---------------------------------------------------------------------------
 ## STEP 1: Load the packages you just installed
@@ -50,6 +62,10 @@
 # "Loading" a package with library() makes its functions available in your
 # current R session. You need to do this every time you (re)start R -
 # unlike install.packages(), which you only need once per computer.
+#
+# Note: you do NOT need library(lpSolveAPI) - the package's own code refers
+# to it internally (lpSolveAPI::...), so it just needs to be installed, not
+# attached here.
 
 library(readxl)
 library(ggplot2)
@@ -62,21 +78,20 @@ library(tidyr)
 
 # Because you are working directly inside the source code of the optimLanduse
 # package (this GitHub repository), rather than a version installed from
-# CRAN, we use devtools::load_all() to load all of its functions
-# (initScenario, solveScenario, calcPerformance, exampleData, ...) into your
-# session. Make sure your RStudio "Project" is optimLanduse.Rproj (check the
-# top-right corner of RStudio) before running this - load_all() loads
+# CRAN, we load its functions (initScenario, solveScenario, calcPerformance,
+# ...) directly from the R/ folder using source(). Make sure your RStudio
+# "Project" is optimLanduse.Rproj (check the top-right corner of RStudio)
+# before running this - source() looks for the R/ folder relative to
 # whatever project/folder you currently have open.
 
-devtools::load_all(".")
+for (f in list.files("R", full.names = TRUE)) source(f)
 
 ## ---------------------------------------------------------------------------
 ## STEP 3: Load the example dataset that ships with this package
 ## ---------------------------------------------------------------------------
 
-# exampleData() is a helper function from this package. It returns the file
-# path to a dataset that is bundled inside the package. Here we ask for
-# "exampleGosling.xlsx", the real dataset from:
+# The dataset lives inside this repository at inst/extdata/exampleGosling.xlsx.
+# It is the real dataset from:
 #
 #   Gosling, E., Reith, E., Knoke, T., Paul, C. (2020). A goal programming
 #   approach to evaluate agroforestry systems in Eastern Panama. Journal of
@@ -86,9 +101,13 @@ devtools::load_all(".")
 # uncertainties) about 10 indicators (e.g. financial stability, labour
 # demand, water protection) for 6 land-cover options (e.g. Crops, Pasture,
 # Forest, Silvopasture).
+#
+# (The package also has a helper function, exampleData(), that returns this
+# same path - but it only works once the package has been formally
+# installed, which we're intentionally skipping in this exercise. Reading
+# the file directly, as below, gives the exact same data.)
 
-path <- exampleData("exampleGosling.xlsx")
-dat <- read_excel(path)
+dat <- read_excel("inst/extdata/exampleGosling.xlsx")
 
 # Look at the raw data. Click on "dat" in the Environment pane (top-right),
 # or run the line below, to open it in a spreadsheet-like viewer.
@@ -248,6 +267,11 @@ ggplot(performance$scenarioTable, aes(x = indicator, y = performance, color = in
 # Exercise D: Look up the help page for initScenario() by running:
 #
 #   ?initScenario
+#
+#   (If the help page doesn't open because the package isn't formally
+#   installed, just open R/initScenario.R in the Files pane instead and
+#   read the comment block at the top of the file - it documents every
+#   argument.)
 #
 #   What does the fixDistance argument do? Try setting fixDistance = 3 in
 #   STEP 5 (with uValue = 2) and see whether the resulting land-cover shares
