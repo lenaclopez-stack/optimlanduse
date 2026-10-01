@@ -12,7 +12,7 @@ Each **dot** is one land-use mix on the grid, scored on two bundles. Three layer
 
 * **Grey cloud** – a random sample of 8,000 of all mixes (so the file stays small). Shows what is *possible*.
 * **Coloured dots** – the mixes on the full three-bundle Pareto frontier. Their colour shows the **third** bundle (the one not on the axes). A dot can look "inside" the cloud in a 2-D view because it is only efficient when you also look at the third bundle.
-* **Black line** – the two-bundle frontier (ignoring the third bundle): the upper-right edge of the cloud. This is the classic "trade-off curve": moving along it improves one bundle and worsens the other.
+* **Black line** – the **exact** two-bundle frontier computed with the package's own Pareto option (`solveScenario(paretoY, paretoX, paretoMaxDistance)`, Lesson 8.9), ignoring the third bundle. This is the classic "trade-off curve": moving along it improves one bundle and worsens the other. It lies on or just above the upper-right edge of the grey cloud (the cloud is limited by the 5 % grid).
 * **Large symbols** – the four portfolios from Lesson 7: the three single-bundle optima and the robust compromise (black diamond).
 
 ## 9.2 Figure R3 – the Pareto frontier for all three pairs of bundles
@@ -127,7 +127,7 @@ save_figure(fig_r4, "fig_R4_composition_along_frontier", width = 26, height = 11
 * `bind_rows(lapply(...))` glues the three long tables together.
 * `geom_area(position = "stack")` draws stacked areas; the x position is the performance of the first bundle of the pair, so we see how the **recipe of land uses changes as one bundle is favoured over the other**.
 * `facet_wrap(~ pair, scales = "free_x")` makes one panel per pair, each with its own x range.
-* Remember: among portfolios with identical scores, the one that is best for the third bundle was kept (Lesson 8.9). Otherwise the areas would jump around arbitrarily.
+* The compositions come from the package's exact solutions, one per required level of the first bundle, so the areas change smoothly. (For a given level the package picks one optimum; if several mixes tie, which one it returns is arbitrary – mention this if a reviewer asks.)
 
 **Reading it:** Wide bands that grow on one side show which land uses "win" when the corresponding goal gets priority. A land use whose band appears only in the middle is a *compromise land use*. A land use that never appears is dominated by others in those two goals.
 
@@ -172,8 +172,8 @@ cat("Best-balanced mix found on the grid: weakest bundle =", round(best_balanced
 
 ## 9.5 Choosing the right resolution (and the word "frontier")
 
-* The frontier is **approximated** by a grid. With `GRID_STEP = 0.05` the points are spaced at least 5 percentage points apart in the land-use shares; the frontier can look slightly stepped. For the final version of the paper, set `GRID_STEP <- 0.025` in `lesson06_inputs.R` and run `run_all.R` while you do something else (expect 20–60 minutes on a laptop). Report the step size in the Methods.
-* The validation table of Lesson 8 (exact package optimum vs best on grid) is the quantitative evidence that the grid is fine enough; quote it, e.g. "the grid optimum deviated from the exact optimum by less than 0.0X guaranteed-performance units".
+* The **black lines are exact** (linear-programming solutions of the package). The **coloured dots** (three-bundle frontier) are approximated by the grid: with `GRID_STEP = 0.05` neighbouring mixes differ by at least 5 percentage points, so the dots can look slightly stepped. For the final version set `GRID_STEP <- 0.025` in `lesson06_inputs.R` and run `run_all.R` while you do something else (20–60 minutes on a laptop). Report the step size in the Methods. You can raise the number of exact points per curve with the argument `n_points` of `native_pair_frontier()` (default 41).
+* The two validation tables of Lesson 8 (8.8: exact single-bundle optimum vs best on grid; 8.10: grid versus the package's exact Pareto curve) are the quantitative evidence of how close the grid is to the exact result; quote them, e.g. "the grid frontier deviated from the exact frontier by at most 0.0X guaranteed-performance units".
 
 ## 9.6 Practice
 

@@ -38,12 +38,9 @@ pair_cmp <- bundle_names[1:2]            # which two bundles to show (default: E
 third_cmp <- setdiff(bundle_names, pair_cmp)
 
 compare_fronts <- bind_rows(lapply(U_COMPARE, function(u) {
-  init_u  <- initScenario(coefTable = coef_table, uValue = u,
-                          optimisticRule = OPTIMISTIC_RULE, fixDistance = FIX_DISTANCE)
-  A_u     <- build_scoring_matrix(init_u)
-  scen_b  <- indicator_info$bundle[match(init_u$scenarioTable$indicator, indicator_info$id)]
-  perf_u  <- score_bundles(grid_w, A_u, scen_b, bundle_names)
-  f       <- pair_frontier(perf_u, grid_w, pair_cmp[1], pair_cmp[2], third_cmp)
+  init_u <- initScenario(coefTable = coef_table, uValue = u,
+                         optimisticRule = OPTIMISTIC_RULE, fixDistance = FIX_DISTANCE)
+  f <- native_pair_frontier(init_u, pair_cmp[1], pair_cmp[2], third_cmp)   # exact, package Pareto option
   data.frame(u = u, x = f$x, y = f$y)
 }))
 

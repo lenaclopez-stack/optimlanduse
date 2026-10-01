@@ -3,7 +3,7 @@
 -- Robust compromise portfolio --
 The robust compromise portfolio (u = 1) allocated land to: Proforestation (35%), Alpine pasture (26%), Timber forest (20%), Biodiversity meadows (19%). No land was allocated to: Protection forest, Natural regeneration.
 Its guaranteed performance was 37.6%: even in the worst uncertainty scenario, every indicator reached at least 37.6% of its best achievable level.
-The compromise was limited by: NPV, Biodiversity (value), Deadwood, Living with wildlife.
+The compromise was limited by: Deadwood, Biodiversity (value), NPV, Living with wildlife.
 
 -- Single-bundle optima and trade-offs --
 Optimising for the Economic bundle alone gave that bundle a guaranteed performance of 76.2%; the compromise reached 49% of this value (37.6%).

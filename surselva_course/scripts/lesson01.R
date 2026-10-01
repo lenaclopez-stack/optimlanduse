@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------
 
 # Which packages do we need?
-needed <- c("optimLanduse", "lpSolveAPI", "dplyr", "tidyr",
+needed <- c("optimLanduse", "lpSolveAPI", "future.apply", "dplyr", "tidyr",
             "ggplot2", "readxl", "patchwork")
 
 # Which of them are NOT installed on this computer yet?
@@ -21,5 +21,9 @@ if (length(missing_packages) > 0) {
   message("All packages are installed. You are ready for Lesson 2.")
 }
 
-# Show the version of the main package
+# The Pareto option (paretoY / paretoX / paretoMaxDistance) exists from version 2.0.0
+if (packageVersion("optimLanduse") < "2.0.0")
+  stop("optimLanduse ", as.character(packageVersion("optimLanduse")),
+       " is too old. Install version 2.0.0 or newer: ",
+       'remotes::install_github("Forest-Economics-Goettingen/optimLanduse")')
 print(packageVersion("optimLanduse"))

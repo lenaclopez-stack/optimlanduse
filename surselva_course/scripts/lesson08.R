@@ -169,24 +169,81 @@ print(validation)
 if (any(grid_best > exact_best + 1e-3))
   warning("A grid portfolio beats the package optimum - please check the settings.")
 
-pair_frontier <- function(perf, W, a, b, third) {
-  eff <- is_pareto_efficient(perf[, c(a, b)])
-  out <- cbind(as.data.frame(W[eff, , drop = FALSE]),
-               x = perf[eff, a], y = perf[eff, b], third = perf[eff, third])
-  out <- out[order(-out$third), ]                                    # best third bundle first
-  out <- out[!duplicated(round(cbind(out$x, out$y), 6)), ]           # one portfolio per (x, y) point
-  out <- out[order(out$x), ]                                         # sort along the frontier
+# The Pareto arguments exist only in optimLanduse >= 2.0.0
+stopifnot("Please install optimLanduse 2.0.0 or newer (see Lesson 1.4)" =
+            all(c("paretoY", "paretoX", "paretoMaxDistance") %in% names(formals(solveScenario))))
+
+bundle_ids <- function(b) indicator_info$id[indicator_info$bundle == b]
+
+# init : an initialised optimLanduse object (any u-value)
+# x_bundle, y_bundle : the two bundles on the axes; third_bundle : the remaining one
+native_pair_frontier <- function(init, x_bundle, y_bundle, third_bundle, n_points = 41) {
+  A_i <- build_scoring_matrix(init)
+  sb  <- indicator_info$bundle[match(init$scenarioTable$indicator, indicator_info$id)]
+
+  # Highest possible x performance: maximise the x bundle with no condition on y
+  top   <- solveScenario(init, digitsPrecision = DIGITS,
+                         paretoY = bundle_ids(x_bundle), paretoX = bundle_ids(y_bundle),
+                         paretoMaxDistance = 0)
+  x_max <- 1 - top$beta
+
+  # Required x levels from 0 up to (just below) the maximum
+  levels <- seq(0, x_max - 1e-5, length.out = n_points)
+
+  rows <- lapply(levels, function(level) {
+    r <- solveScenario(init, digitsPrecision = DIGITS,
+                       paretoY = bundle_ids(y_bundle),      # maximise this ...
+                       paretoX = bundle_ids(x_bundle),      # ... while this stays >= level
+                       paretoMaxDistance = level)
+    if (r$status != "optimized") return(NULL)
+    as.numeric(r$landUse[1, ])
+  })
+  W <- do.call(rbind, rows)
+  colnames(W) <- names(init$landUse)
+
+  perf <- score_bundles(W, A_i, sb, bundle_names)            # score all three bundles
+  keep <- is_pareto_efficient(perf[, c(x_bundle, y_bundle)])  # drop weakly dominated points
+  out  <- cbind(as.data.frame(W[keep, , drop = FALSE]),
+                x = perf[keep, x_bundle], y = perf[keep, y_bundle],
+                third = perf[keep, third_bundle])
+  out <- out[order(-out$y), ]                            # best y first ...
+  out <- out[!duplicated(round(out$x, 5)), ]             # ... so only one point per x value stays
+  out <- out[order(out$x), ]
   rownames(out) <- NULL
   out
 }
 
-pair_defs <- combn(bundle_names, 2, simplify = FALSE)   # (Economic, Ecological), (Economic, Social), (Ecological, Social)
-pair_fronts <- lapply(pair_defs, function(p) {
-  third <- setdiff(bundle_names, p)
-  pair_frontier(grid_perf, grid_w, p[1], p[2], third)
-})
+pair_defs   <- combn(bundle_names, 2, simplify = FALSE)   # (Economic, Ecological), (Economic, Social), (Ecological, Social)
+pair_fronts <- lapply(pair_defs, function(p)
+  native_pair_frontier(init_all, p[1], p[2], setdiff(bundle_names, p)))
 names(pair_fronts) <- sapply(pair_defs, paste, collapse = " vs ")
 print(sapply(pair_fronts, nrow))     # number of frontier points per pair
+
+pair_frontier_grid <- function(perf, W, a, b, third) {
+  eff <- is_pareto_efficient(perf[, c(a, b)])
+  out <- cbind(as.data.frame(W[eff, , drop = FALSE]),
+               x = perf[eff, a], y = perf[eff, b], third = perf[eff, third])
+  out <- out[order(-out$third), ]
+  out <- out[!duplicated(round(cbind(out$x, out$y), 6)), ]
+  out <- out[order(out$x), ]
+  rownames(out) <- NULL
+  out
+}
+
+compare_tab <- do.call(rbind, lapply(pair_defs, function(p) {
+  g <- pair_frontier_grid(grid_perf, grid_w, p[1], p[2], setdiff(bundle_names, p))
+  n <- pair_fronts[[paste(p, collapse = " vs ")]]
+  # for every exact point: best y reached by ANY grid mix with at least the same x
+  grid_y <- sapply(n$x, function(x0) max(c(-Inf, g$y[g$x >= x0 - 1e-9])))
+  data.frame(pair = paste(p, collapse = " vs "),
+             grid_beats_exact = sum(grid_y > n$y + 1e-4),        # must be 0
+             max_gap = round(max((n$y - grid_y)[is.finite(grid_y)]), 3))  # how far the grid falls short
+}))
+print(compare_tab)
+
+if (any(compare_tab$grid_beats_exact > 0))
+  stop("Check failed: a grid mix is better than the package's exact Pareto point.")
+message("Check passed: the grid frontier never beats the package's exact frontier.")
 
 frontier_out <- frontier
 names(frontier_out)[match(land_use_ids, names(frontier_out))] <- land_use_labels

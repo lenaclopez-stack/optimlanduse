@@ -23,7 +23,7 @@ Goal: produce the Results section of your PhD article – a **Pareto frontier** 
 | 9 | [Pareto frontier – figures](lessons/lesson09_pareto_figures.md) | Figures R3–R4, Table R2 |
 | 10 | [Uncertainty and writing](lessons/lesson10_uncertainty_and_results.md) | Figures R5–R6, auto-written sentences, checklist, Methods wording |
 
-Also read [`PACKAGE_NOTES.md`](PACKAGE_NOTES.md): what I found when reading every file of the package (including that the package has **no** Pareto-frontier function).
+Also read [`PACKAGE_NOTES.md`](PACKAGE_NOTES.md): what I found when reading the package code, how its Pareto option (`paretoY`, `paretoX`, `paretoMaxDistance`, new in **version 2.0.0**) works, and a correction of my first version.
 
 ## Folder map
 
@@ -42,7 +42,7 @@ surselva_course/
 
 ## Assumptions I made – please confirm
 
-1. **"Pareto frontier"** = the non-dominated set of land-use compositions with respect to the *guaranteed performance* of the three bundles (worst indicator, worst uncertainty scenario). The package does not provide this; it is built on top of the package and checked against it (Lessons 1.1, 8).
+1. **"Pareto frontier"** = the non-dominated set of land-use compositions with respect to the *guaranteed performance* of the three bundles (worst indicator, worst uncertainty scenario). Two-bundle frontiers are computed **exactly with the package's own Pareto option** (optimLanduse ≥ 2.0.0, epsilon-constraint method); the package can constrain only one X set, so the three-bundle frontier is derived from a grid of all land-use mixes and checked against the exact curves (Lessons 1.1, 8).
 2. **Social indicators**: AHP gives, per expert, a priority score for each land use under each of the four stakeholder values; mean and SD are taken across the 6 experts. If your AHP produced *weights of the four values* instead, the data structure needs to be discussed.
 3. **Uncertainty = standard deviation** (as you said), with a switch to use the standard error (SD/√n).
 4. All indicators are "more is better". "Proforestatio" is read as *proforestation*.
@@ -51,4 +51,4 @@ surselva_course/
 
 ## Tested with
 
-R 4.3.3, optimLanduse 1.1.0 (repository commit `0bbaa84`), dplyr 1.1.4, ggplot2 3.4.4, patchwork. The complete pipeline runs in about 35 seconds on the placeholder data.
+R 4.3.3, **optimLanduse 2.0.0** (upstream commit `f93e055`), dplyr 1.1.4, ggplot2 3.4.4, patchwork. Version 2.0.0 or newer is required for the Pareto option. The complete pipeline runs in about a minute on the placeholder data.

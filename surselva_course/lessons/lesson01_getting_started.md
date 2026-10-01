@@ -25,20 +25,21 @@ By the end of the course you will produce, with one click:
 6. **Figure R5/R6** – what happens when you are more cautious about uncertainty.
 7. Ready-made sentences with the numbers filled in, for your Results text.
 
-### Important honesty note about "the Pareto frontier in the NEWS.md"
+### Where the Pareto frontier comes from (and a correction)
 
-You asked for the Pareto frontier "created in the code under NEWS.md". I read **every file** of the repository (all R code, `NEWS.md`, `README.Rmd`, `DESCRIPTION`, help pages). The word "Pareto" does not appear anywhere. `NEWS.md` only lists version changes (0.0.4 → 1.0.0 → 1.1.0) and contains no code.
+You asked for the Pareto frontier described in the repository's `NEWS.md`. That feature exists – but **only in the newest version of the package, 2.0.0**. `NEWS.md` there says: *"solveScenario: added Pareto optimisation (paretoY, paretoX, paretoMaxDistance) and land-use restrictions (landUseRestriction)"*. (The first version of this course was written against an older copy of the repository, version 1.1.0, which has no such feature; that was my mistake and it is corrected here. The course now requires **optimLanduse 2.0.0 or newer**.)
 
-What the package really does: it finds **one** best-compromise land-use mix (it maximises the performance of the *worst-served* indicator under uncertainty, a so-called *robust max-min* or *reference-point* approach – Knoke et al. 2016). It does **not** draw a Pareto frontier by itself.
+How the package's Pareto option works (it is the classic *epsilon-constraint* method):
 
-So in this course we build the Pareto frontier **ourselves, on top of the package**, in a way that is transparent and checkable:
+* `paretoY` – the indicator(s) you want to **maximise** (the vertical axis of the frontier);
+* `paretoX` – the indicator(s) that are **constrained** (the horizontal axis);
+* `paretoMaxDistance` – the minimum guaranteed performance (0–1) the `paretoX` indicators must reach.
 
-* we use the package to define the problem and to compute the uncertainty-adjusted performance of any land-use mix;
-* we score a very large number of possible land-use mixes (every mix in 5 % steps = 53,130 mixes);
-* we keep only the mixes that **nobody beats** on all three bundles at once = the Pareto frontier;
-* we **check** our fast calculation against the package's own functions (Lesson 8), so you can say in the paper that it is consistent with *optimLanduse*.
+One call returns **one point** of the frontier: the land-use mix with the highest guaranteed performance of the Y indicators, given that the X indicators are at least at the chosen level. Repeating the call for levels from 0 up to the X indicators' maximum traces the whole frontier. We give the function whole *bundles* (e.g. all ecological indicators as Y, all economic indicators as X), so the guaranteed performance is that of the bundle's worst indicator in its worst scenario.
 
-In your Methods you can write this as: *"The Pareto frontier of the three bundles was derived by evaluating the uncertainty-adjusted guaranteed performance (Husmann et al.) of all land-use compositions on a 5 % grid and retaining the non-dominated compositions."* Please let your supervisor confirm this matches how you want to define the frontier.
+The package can constrain only one set of X indicators at a time, so it gives exact **two-bundle** frontiers (Economic vs Ecological, Economic vs Social, Ecological vs Social). For the **three-bundle** frontier the course additionally scores every land-use mix on a 5 % grid (53,130 mixes), keeps the non-dominated ones, and uses this grid as an independent cross-check of the package's exact points (Lesson 8). Both use the same definition of performance, and a built-in test confirms that our fast scoring agrees with the package's `calcPerformance()`.
+
+Please let your supervisor confirm that this definition of the frontier (guaranteed performance per bundle, uncertainty included) is what you want.
 
 ---
 
@@ -103,7 +104,7 @@ A *package* is an add-on for R written by other people. You install it **once** 
 Run this **once**, in the Console (it needs internet and may take a few minutes):
 
 ```r
-install.packages(c("dplyr", "tidyr", "ggplot2", "readxl", "patchwork", "optimLanduse"))
+install.packages(c("dplyr", "tidyr", "ggplot2", "readxl", "patchwork", "future.apply", "optimLanduse"))
 ```
 
 If R asks *"Do you want to restore a previous session / use a personal library?"* answer **yes**.
@@ -113,13 +114,13 @@ What each package is for:
 | Package | Purpose in our analysis |
 |---|---|
 | `optimLanduse` | **The main package** – the robust land-use optimisation. |
-| `lpSolveAPI` | Installed automatically with optimLanduse; it is the linear-programming solver inside it. |
+| `lpSolveAPI`, `future.apply` | Installed automatically with optimLanduse; the linear-programming solver and a helper for parallel computing. |
 | `dplyr`, `tidyr` | Tidying and reshaping tables (lesson 3). |
 | `ggplot2` | Making figures (lesson 4). |
 | `readxl` | Reading Excel files (needed for the package's example data). |
 | `patchwork` | Putting several figures side by side. |
 
-> **Version note.** The code in this course was tested with *optimLanduse* version **1.1.0** (the version in the GitHub repository you sent, `Forest-Economics-Goettingen/optimLanduse`) together with dplyr 1.1.4 and ggplot2 3.4.4. If `install.packages("optimLanduse")` gives you a different version, the course contains an automatic check (Lesson 8) that stops with a clear message if anything behaves differently. To install exactly the GitHub version: `install.packages("remotes")` and then `remotes::install_github("Forest-Economics-Goettingen/optimLanduse")`.
+> **Version note – important.** The Pareto option needs **optimLanduse ≥ 2.0.0**. After installing, check the version (the script in 1.5 does this for you). If you get an older version (for example because CRAN has not yet published 2.0.0), install the GitHub version instead: `install.packages("remotes")` and then `remotes::install_github("Forest-Economics-Goettingen/optimLanduse")`. The course was tested with optimLanduse **2.0.0** (GitHub, commit `f93e055` "Submission 2.0.0"), R 4.3.3, dplyr 1.1.4 and ggplot2 3.4.4.
 
 ---
 
@@ -130,7 +131,7 @@ Open the file `scripts/lesson01.R` (File → Open File…) and run it line by li
 <!--run-->
 ```r
 # Which packages do we need?
-needed <- c("optimLanduse", "lpSolveAPI", "dplyr", "tidyr",
+needed <- c("optimLanduse", "lpSolveAPI", "future.apply", "dplyr", "tidyr",
             "ggplot2", "readxl", "patchwork")
 
 # Which of them are NOT installed on this computer yet?
@@ -146,7 +147,11 @@ if (length(missing_packages) > 0) {
   message("All packages are installed. You are ready for Lesson 2.")
 }
 
-# Show the version of the main package
+# The Pareto option (paretoY / paretoX / paretoMaxDistance) exists from version 2.0.0
+if (packageVersion("optimLanduse") < "2.0.0")
+  stop("optimLanduse ", as.character(packageVersion("optimLanduse")),
+       " is too old. Install version 2.0.0 or newer: ",
+       'remotes::install_github("Forest-Economics-Goettingen/optimLanduse")')
 print(packageVersion("optimLanduse"))
 ```
 
@@ -158,7 +163,7 @@ print(packageVersion("optimLanduse"))
 * `if (...) { ... } else { ... }` – "if this is true, do A, otherwise do B".
 * `stop("text")` – ends the script and prints the text as an error. `message("text")` just prints information.
 * `paste(x, collapse = ", ")` glues several texts together into one, separated by commas.
-* `print(packageVersion("optimLanduse"))` – shows the installed version (we tested `1.1.0`).
+* `packageVersion("optimLanduse") < "2.0.0"` compares version numbers; if the package is too old the script stops and tells you what to do. Otherwise it prints the installed version (we tested `2.0.0`).
 
 If you see *"All packages are installed"* you are ready.
 
@@ -188,6 +193,6 @@ If you see *"All packages are installed"* you are ready.
 1. What is the difference between the Console and the Script editor?
 2. What does `<-` do?
 3. Why do we open the `.Rproj` file?
-4. Does the package draw the Pareto frontier for you? (No – we build it on top of the package, and check it against the package.)
+4. Which three arguments of `solveScenario()` create a point on the Pareto frontier? (`paretoY`, `paretoX`, `paretoMaxDistance`; they exist from version 2.0.0.)
 
 **Next:** Lesson 2 – your first R commands.

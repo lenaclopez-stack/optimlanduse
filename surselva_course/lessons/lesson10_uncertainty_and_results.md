@@ -58,12 +58,9 @@ pair_cmp <- bundle_names[1:2]            # which two bundles to show (default: E
 third_cmp <- setdiff(bundle_names, pair_cmp)
 
 compare_fronts <- bind_rows(lapply(U_COMPARE, function(u) {
-  init_u  <- initScenario(coefTable = coef_table, uValue = u,
-                          optimisticRule = OPTIMISTIC_RULE, fixDistance = FIX_DISTANCE)
-  A_u     <- build_scoring_matrix(init_u)
-  scen_b  <- indicator_info$bundle[match(init_u$scenarioTable$indicator, indicator_info$id)]
-  perf_u  <- score_bundles(grid_w, A_u, scen_b, bundle_names)
-  f       <- pair_frontier(perf_u, grid_w, pair_cmp[1], pair_cmp[2], third_cmp)
+  init_u <- initScenario(coefTable = coef_table, uValue = u,
+                         optimisticRule = OPTIMISTIC_RULE, fixDistance = FIX_DISTANCE)
+  f <- native_pair_frontier(init_u, pair_cmp[1], pair_cmp[2], third_cmp)   # exact, package Pareto option
   data.frame(u = u, x = f$x, y = f$y)
 }))
 
@@ -84,7 +81,7 @@ save_figure(fig_r6, "fig_R6_frontier_vs_uncertainty", width = 12, height = 12)
 
 **Explanation**
 
-* For each `u` we build a *new* scoring matrix (`build_scoring_matrix`, Lesson 8) because the uncertainty-adjusted values change with `u`; then we score the **same grid** and extract the two-bundle frontier.
+* For each `u` we initialise a *new* object (the uncertainty-adjusted values change with `u`) and trace the exact two-bundle frontier with `native_pair_frontier()` from Lesson 8.9, i.e. with the package's Pareto option.
 * `colorRampPalette(c(light, dark))(n)` makes `n` shades between two colours (one-hue light→dark = more uncertainty).
 * **Important for interpretation:** the performance at each `u` is relative to the best and worst achievable *at that u*. Frontiers therefore show how the *trade-off shape* changes, not that "everything gets worse in absolute terms". With larger `u`, frontiers typically move towards the lower left (guaranteed performances fall) and portfolios become more diversified.
 * To compare another pair, change `pair_cmp <- bundle_names[c(1, 3)]` (Economic vs Social) or `[2:3]` (Ecological vs Social).
@@ -196,12 +193,12 @@ print(list.files("output", recursive = TRUE))
 | 3.5 Sensitivity to uncertainty | Fig. R5, Fig. R6, Table R3 | stability of the results to `u` |
 
 **Methods wording (adapt!).**
-*"Land-use compositions were optimised with the R package optimLanduse (Husmann et al.; version X), which implements the robust multi-objective approach of Knoke et al. (2016). For each land use and indicator, the mean and the standard deviation were entered; uncertainty-adjusted outcomes were calculated as mean ∓ u × SD, with u = … The performance of a composition is the share of the best achievable level of an indicator (min–max scaled); the guaranteed performance of a bundle is the lowest performance of any of its indicators in any uncertainty scenario. The Pareto frontier of the economic, ecological and social bundles was derived by evaluating all land-use compositions on a …% grid (n = …) with the package's scenario table and retaining all non-dominated compositions; the evaluation was verified against the package functions calcPerformance() and solveScenario(). Social indicator values were derived from AHP priorities of six experts (mean and SD across experts)."*
+*"Land-use compositions were optimised with the R package optimLanduse (Husmann et al. 2022; version 2.0.0), which implements the robust multi-objective approach of Knoke et al. (2016). For each land use and indicator, the mean and the standard deviation were entered; uncertainty-adjusted outcomes were calculated as mean ∓ u × SD, with u = … The performance of a composition is the share of the best achievable level of an indicator (min–max scaled); the guaranteed performance of a bundle is the lowest performance of any of its indicators in any uncertainty scenario. Pairwise Pareto frontiers between bundles were computed with the Pareto option of solveScenario() (epsilon-constraint method: maximising the guaranteed performance of one bundle while the guaranteed performance of another bundle is held at or above a given level, in … steps). The three-bundle frontier was derived by evaluating all land-use compositions on a …% grid (n = …) with the package's scenario table and retaining all non-dominated compositions; this evaluation was verified against calcPerformance() and solveScenario(), and the grid frontier was checked against the exact pairwise frontiers. Social indicator values were derived from AHP priorities of six experts (mean and SD across experts)."*
 
 **References to check and cite** (always verify the final published version yourself):
 
 * Knoke, T., Paul, C., Hildebrandt, P. et al. (2016). Compositional diversity of rehabilitated tropical lands supports multiple ecosystem services and buffers uncertainties. *Nature Communications* 7, 11877. https://doi.org/10.1038/ncomms11877
-* Husmann, K., von Groß, V., Bödeker, K., Fuchs, J. M., Paul, C., Knoke, T. *optimLanduse: A package for multiobjective land-cover composition optimization under uncertainty.* *Methods in Ecology and Evolution* – at the time of the repository snapshot this was "under review"; look up the published reference. Also cite the package itself: run `citation("optimLanduse")` in R.
+* Husmann, K., von Groß, V., Bödeker, K., Fuchs, J. M., Paul, C., & Knoke, T. (2022). optimLanduse: A package for multiobjective land-cover composition optimization under uncertainty. *Methods in Ecology and Evolution*. https://doi.org/10.1111/2041-210X.14000 (as given in the package documentation of version 2.0.0). Also cite the package version you used: run `citation("optimLanduse")` in R.
 * Gosling, E., Reith, E., Knoke, T., Paul, C. (2020). A goal programming approach to evaluate agroforestry systems in Eastern Panama. *Journal of Environmental Management* 261, 110248. https://doi.org/10.1016/j.jenvman.2020.110248 (the package documentation also lists a second Gosling et al. 2020 paper in *Agroforestry Systems*; see `PACKAGE_NOTES.md`).
 
 ## 10.7 Troubleshooting
@@ -215,7 +212,8 @@ print(list.files("output", recursive = TRUE))
 | `The indicator names are not unique.` | An indicator–land-use pair appears twice. |
 | `No optimum found` printed by the solver | Very rare; usually caused by bounds that cannot be met or NaN values. Check for identical means or zero ranges. |
 | Warning *"Non-necessary columns detected and neglected"* | Your table has extra columns. Harmless (only `indicatorGroup` is allowed to stay without a warning). |
-| `Check failed: the fast scoring differs…` | The installed package version differs from the tested one. Install the GitHub version (see Lesson 1.4) and re-run; if it persists, do not use the Pareto results and ask for help. |
+| `Check failed: the fast scoring differs…` | The installed package version differs from the tested one (2.0.0). Install the GitHub version (see Lesson 1.4) and re-run; if it persists, do not use the Pareto results and ask for help. |
+| `Please install optimLanduse 2.0.0 or newer` | The Pareto arguments are missing in your version. See Lesson 1.4. |
 | Plot is empty or colours missing | A name in `land_use_labels` differs from the one in `land_use_palette` mapping. Re-check the labels. |
 | Very slow | Use `GRID_STEP <- 0.1` for quick tests (3,003 mixes). |
 | `optimisticRule` typo, e.g. "expectaton" | The package only *prints* an error message and then carries on with invalid values! Always spell it exactly: `"expectation"` or `"uncertaintyAdjustedExpectation"`. |

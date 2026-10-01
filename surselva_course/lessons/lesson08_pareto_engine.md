@@ -18,19 +18,18 @@ Portfolio **A dominates** portfolio **B** if A is at least as good on all three 
 
 *Example with two goals:* A = (0.8, 0.4), B = (0.6, 0.4), C = (0.5, 0.7). A dominates B (better economy, same ecology). A and C do not dominate each other (A is better economically, C is better ecologically) → both are on the frontier. Moving along the frontier means **trading** one goal for another – this trade-off is what your paper shows.
 
-**How we find it** (a "brute force" approach, easy to understand and check):
+**How we find it – two complementary routes**
 
-1. Generate **every** land-use mix in 5 % steps (6 shares that add up to 100 %).
-2. Score each mix on the three bundles.
-3. Throw away every dominated mix.
+1. **The package's own Pareto option (exact, two bundles at a time).** `solveScenario(paretoY = …, paretoX = …, paretoMaxDistance = …)` (new in optimLanduse 2.0.0) maximises the guaranteed performance of the Y indicators while the X indicators must reach at least the level `paretoMaxDistance`. Repeating it for levels from 0 to the maximum traces the exact trade-off curve between two bundles.
+2. **A grid search over all land-use mixes (approximate, all three bundles together).** We (a) generate every mix in 5 % steps, (b) score each on the three bundles, (c) throw away every dominated mix. The package can only constrain one set of X indicators, so it cannot give the full three-bundle surface; the grid can.
 
-And one honest check: the package's own solver gives the **exact optimum for each single bundle**. Our grid search must come close to (and never exceed) those values, so we can verify it.
+The two routes are **used to check each other**: no grid mix may ever be better than the package's exact curve, and the exact optimum of each bundle (also computed by the package) must be at least as high as the grid's best.
 
 ---
 
 ## 8.2 Step 1 – A fast scoring tool built on the package's scenario table
 
-`calcPerformance()` from the package scores **one** portfolio in about 0.1 s. We need to score ~53,000, so we use the same arithmetic in a vectorised form. For each scenario row, the package defines (see `defineConstraintCoefficients` and `calcPerformance` in the package source):
+`calcPerformance()` from the package scores **one** portfolio in about 0.1 s. For the grid we need ~53,000 portfolios (and for the exact curves we need the three bundle scores of each point), so we use the same arithmetic in a vectorised form. For each scenario row, the package defines (see `defineConstraintCoefficients` and `calcPerformance` in the package source):
 
 * "more is better": performance = (value − min) / range,
 * "less is better": performance = (max − value) / range,
@@ -313,40 +312,115 @@ if (any(grid_best > exact_best + 1e-3))
 
 ---
 
-## 8.9 Step 8 – Pairwise (two-bundle) frontiers
+## 8.9 Step 8 – Exact two-bundle frontiers with the package's Pareto option
 
-Plots are easier in two dimensions. For a pair of bundles (e.g. Economic vs Ecological) we also compute the frontier **ignoring** the third bundle. Among identical points we keep the portfolio that is best for the third bundle.
+For a pair of bundles (e.g. Economic on the x axis, Ecological on the y axis, the third bundle ignored) we call `solveScenario()` with the Pareto arguments for 41 levels of the x bundle. Each call returns one exact frontier point.
 
 <!--run-->
 ```r
-pair_frontier <- function(perf, W, a, b, third) {
-  eff <- is_pareto_efficient(perf[, c(a, b)])
-  out <- cbind(as.data.frame(W[eff, , drop = FALSE]),
-               x = perf[eff, a], y = perf[eff, b], third = perf[eff, third])
-  out <- out[order(-out$third), ]                                    # best third bundle first
-  out <- out[!duplicated(round(cbind(out$x, out$y), 6)), ]           # one portfolio per (x, y) point
-  out <- out[order(out$x), ]                                         # sort along the frontier
+# The Pareto arguments exist only in optimLanduse >= 2.0.0
+stopifnot("Please install optimLanduse 2.0.0 or newer (see Lesson 1.4)" =
+            all(c("paretoY", "paretoX", "paretoMaxDistance") %in% names(formals(solveScenario))))
+
+bundle_ids <- function(b) indicator_info$id[indicator_info$bundle == b]
+
+# init : an initialised optimLanduse object (any u-value)
+# x_bundle, y_bundle : the two bundles on the axes; third_bundle : the remaining one
+native_pair_frontier <- function(init, x_bundle, y_bundle, third_bundle, n_points = 41) {
+  A_i <- build_scoring_matrix(init)
+  sb  <- indicator_info$bundle[match(init$scenarioTable$indicator, indicator_info$id)]
+
+  # Highest possible x performance: maximise the x bundle with no condition on y
+  top   <- solveScenario(init, digitsPrecision = DIGITS,
+                         paretoY = bundle_ids(x_bundle), paretoX = bundle_ids(y_bundle),
+                         paretoMaxDistance = 0)
+  x_max <- 1 - top$beta
+
+  # Required x levels from 0 up to (just below) the maximum
+  levels <- seq(0, x_max - 1e-5, length.out = n_points)
+
+  rows <- lapply(levels, function(level) {
+    r <- solveScenario(init, digitsPrecision = DIGITS,
+                       paretoY = bundle_ids(y_bundle),      # maximise this ...
+                       paretoX = bundle_ids(x_bundle),      # ... while this stays >= level
+                       paretoMaxDistance = level)
+    if (r$status != "optimized") return(NULL)
+    as.numeric(r$landUse[1, ])
+  })
+  W <- do.call(rbind, rows)
+  colnames(W) <- names(init$landUse)
+
+  perf <- score_bundles(W, A_i, sb, bundle_names)            # score all three bundles
+  keep <- is_pareto_efficient(perf[, c(x_bundle, y_bundle)])  # drop weakly dominated points
+  out  <- cbind(as.data.frame(W[keep, , drop = FALSE]),
+                x = perf[keep, x_bundle], y = perf[keep, y_bundle],
+                third = perf[keep, third_bundle])
+  out <- out[order(-out$y), ]                            # best y first ...
+  out <- out[!duplicated(round(out$x, 5)), ]             # ... so only one point per x value stays
+  out <- out[order(out$x), ]
   rownames(out) <- NULL
   out
 }
 
-pair_defs <- combn(bundle_names, 2, simplify = FALSE)   # (Economic, Ecological), (Economic, Social), (Ecological, Social)
-pair_fronts <- lapply(pair_defs, function(p) {
-  third <- setdiff(bundle_names, p)
-  pair_frontier(grid_perf, grid_w, p[1], p[2], third)
-})
+pair_defs   <- combn(bundle_names, 2, simplify = FALSE)   # (Economic, Ecological), (Economic, Social), (Ecological, Social)
+pair_fronts <- lapply(pair_defs, function(p)
+  native_pair_frontier(init_all, p[1], p[2], setdiff(bundle_names, p)))
 names(pair_fronts) <- sapply(pair_defs, paste, collapse = " vs ")
 print(sapply(pair_fronts, nrow))     # number of frontier points per pair
 ```
 
 **Explanation**
 
-* `combn(bundle_names, 2, simplify = FALSE)` lists all pairs of bundles.
-* `setdiff(bundle_names, p)` gives the remaining (third) bundle.
-* `order(-out$third)` sorts descending; `duplicated(...)` marks repeated points; keeping the first one means keeping the one with the best third bundle.
-* `pair_fronts` is a list of three tables (one per pair); each has the six shares plus `x`, `y`, `third`.
+* `names(formals(solveScenario))` lists the argument names of the function; we stop with a clear message if the Pareto arguments are missing (old package version).
+* `bundle_ids("Economic")` returns the indicator ids of a bundle, e.g. `"NPV"`, `"SoilRent"`. The package takes indicator **names**, so giving it all indicators of a bundle treats the bundle as one objective (its worst indicator in its worst scenario).
+* First call: we *swap* the roles (maximise the x bundle, no condition on y: `paretoMaxDistance = 0`) to find the highest performance the x bundle can reach at all, `x_max`.
+* `seq(0, x_max - 1e-5, length.out = 41)` – 41 required levels from 0 up to just below `x_max` (the tiny margin avoids a rounding-induced "no solution").
+* `lapply(levels, function(level) {...})` – for each level one `solveScenario()` call; `r$landUse[1, ]` is the resulting land-use mix.
+* `do.call(rbind, rows)` stacks the mixes into a table; `score_bundles()` (Lesson 8.3) computes the performance of all three bundles for each; `is_pareto_efficient()` removes any point that is not strictly on the two-bundle frontier.
+* `duplicated(round(out$x, 5))` keeps a single point per x value (the one with the highest y); the area chart in Lesson 9 needs unique x values.
+* The result has the six shares plus `x`, `y` (the two bundle performances) and `third` (the performance of the bundle that was not used). Each row is a **real optimum** found by the package's linear-programming solver, not an approximation.
 
-## 8.10 Save the tables
+## 8.10 Cross-check: grid versus the package's exact curve
+
+First we build the grid version of the same curves (best portfolio for the third bundle among ties), then compare.
+
+<!--run-->
+```r
+pair_frontier_grid <- function(perf, W, a, b, third) {
+  eff <- is_pareto_efficient(perf[, c(a, b)])
+  out <- cbind(as.data.frame(W[eff, , drop = FALSE]),
+               x = perf[eff, a], y = perf[eff, b], third = perf[eff, third])
+  out <- out[order(-out$third), ]
+  out <- out[!duplicated(round(cbind(out$x, out$y), 6)), ]
+  out <- out[order(out$x), ]
+  rownames(out) <- NULL
+  out
+}
+
+compare_tab <- do.call(rbind, lapply(pair_defs, function(p) {
+  g <- pair_frontier_grid(grid_perf, grid_w, p[1], p[2], setdiff(bundle_names, p))
+  n <- pair_fronts[[paste(p, collapse = " vs ")]]
+  # for every exact point: best y reached by ANY grid mix with at least the same x
+  grid_y <- sapply(n$x, function(x0) max(c(-Inf, g$y[g$x >= x0 - 1e-9])))
+  data.frame(pair = paste(p, collapse = " vs "),
+             grid_beats_exact = sum(grid_y > n$y + 1e-4),        # must be 0
+             max_gap = round(max((n$y - grid_y)[is.finite(grid_y)]), 3))  # how far the grid falls short
+}))
+print(compare_tab)
+
+if (any(compare_tab$grid_beats_exact > 0))
+  stop("Check failed: a grid mix is better than the package's exact Pareto point.")
+message("Check passed: the grid frontier never beats the package's exact frontier.")
+```
+
+**Explanation**
+
+* `pair_frontier_grid()` is the grid version of the two-bundle frontier (the same code as in the first version of the course).
+* `(n$y - grid_y)[is.finite(grid_y)]` ignores exact points whose x level no grid mix reaches.
+* For every exact point `n` we ask: what is the highest `y` that any grid mix achieves with `x` at least as large? If the package's solver is right, the grid can **never** be better (`grid_beats_exact` must be 0) – the script stops otherwise.
+* `max_gap` shows how much lower the grid frontier is: it is the price of the 5 % resolution (a few hundredths in guaranteed performance). This is why the black lines in the figures come from the package's exact method, whereas the 3-bundle dots come from the grid.
+
+## 8.11 Save the tables
 
 <!--run-->
 ```r

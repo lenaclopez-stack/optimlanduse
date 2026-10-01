@@ -105,7 +105,7 @@ print(example_result$beta)             # beta
 print(round(example_result$landUse, 3))  # the land-use shares (they add up to 1)
 ```
 
-* `solveScenario(x = ...)` takes the initialised object and runs the linear-programming solver `lpSolveAPI` repeatedly, narrowing down β step by step (a bisection search).
+* `solveScenario(x = ...)` takes the initialised object and solves one linear program with the solver `lpSolveAPI` that finds the largest possible guaranteed performance (in version 1.1.0 it did this by repeated bisection; version 2.0.0 uses a single optimisation).
 * `$beta` is β. The **guaranteed performance** is `1 - beta`.
 * `$landUse` is the answer: shares between 0 and 1.
 
@@ -115,8 +115,10 @@ Optional arguments of `solveScenario()` (used later):
 
 | Argument | Meaning |
 |---|---|
-| `digitsPrecision` | Number of decimals of β (default 4). More digits = more accurate, slightly slower. We use 6. |
+| `digitsPrecision` | Number of decimals β is rounded to (default 4). We use 6. |
 | `lowerBound`, `upperBound` | Force minimum / maximum shares. Giving the **same** vector to both fixes a portfolio exactly (used in the README for the "current land use" and the pay-off matrix). |
+| `landUseRestriction` | *(new in 2.0.0)* Maximum shares for named land uses, e.g. `c(AlpinePasture = 0.3)`. |
+| `paretoY`, `paretoX`, `paretoMaxDistance` | *(new in 2.0.0)* Compute one point of a Pareto frontier – see Lessons 1 and 8. |
 
 ---
 
