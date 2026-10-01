@@ -135,7 +135,7 @@ for (i in 1:5) {
 
   if (!isTRUE(all.equal(as.numeric(official_bundle), as.numeric(fast[i, ]), tolerance = 1e-8)))
     stop("Check failed: the fast scoring differs from calcPerformance(). ",
-         "The installed optimLanduse version may differ from the tested one (1.1.0).")
+         "The installed optimLanduse version may differ from the tested one (2.0.0).")
 }
 
 # (c) package solver with the portfolio fixed: 1 - beta must equal the lowest bundle score
