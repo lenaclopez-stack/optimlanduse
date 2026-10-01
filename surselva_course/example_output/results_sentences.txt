@@ -1,0 +1,23 @@
+*** WARNING: these numbers come from PLACEHOLDER data and must not be used in the manuscript. ***
+
+-- Robust compromise portfolio --
+The robust compromise portfolio (u = 1) allocated land to: Proforestation (35%), Alpine pasture (26%), Timber forest (20%), Biodiversity meadows (19%). No land was allocated to: Protection forest, Natural regeneration.
+Its guaranteed performance was 37.6%: even in the worst uncertainty scenario, every indicator reached at least 37.6% of its best achievable level.
+The compromise was limited by: NPV, Biodiversity (value), Deadwood, Living with wildlife.
+
+-- Single-bundle optima and trade-offs --
+Optimising for the Economic bundle alone gave that bundle a guaranteed performance of 76.2%; the compromise reached 49% of this value (37.6%).
+Optimising for the Ecological bundle alone gave that bundle a guaranteed performance of 63.5%; the compromise reached 59% of this value (37.6%).
+Optimising for the Social bundle alone gave that bundle a guaranteed performance of 50.2%; the compromise reached 75% of this value (37.6%).
+
+-- Pareto frontier --
+Of 53,130 land-use mixes evaluated on a 5% grid, 383 were Pareto-efficient with respect to the Economic, Ecological and Social bundles.
+Along the frontier the share of Timber forest ranged from 0% to 50%.
+Along the frontier the share of Protection forest ranged from 0% to 15%.
+Along the frontier the share of Alpine pasture ranged from 0% to 55%.
+Along the frontier the share of Biodiversity meadows ranged from 0% to 50%.
+Along the frontier the share of Proforestation ranged from 0% to 65%.
+Along the frontier the share of Natural regeneration ranged from 0% to 5%.
+
+-- Sensitivity to uncertainty --
+Raising u from 0 to 3 reduced the guaranteed performance of the compromise from 42.9% to 27.5%.
